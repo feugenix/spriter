@@ -256,6 +256,34 @@ function main(settings){
     downloadFile(options);
 };
 
+function validateSettings(settings){
+
+    if (!settings){
+        return "No settings!";
+    }
+
+    if (!settings.name){
+        return "No global name!";
+    }
+
+    if (!(settings.images && settings.images.length)){
+        return "No images to process!";
+    }
+
+    for (var i = 0; i < settings.images.length; i++){
+        var image = settings.images[i];
+        if (!image.url){
+            return "No url for one of the images!";
+        }
+
+        if (!image.name){
+            return "No modificator name for one of the images!"
+        }
+    }
+
+    return true;
+}
+
 /*
  * settings: name - output files name ([settings.name].png, [settings.name].css)
  *
@@ -280,12 +308,14 @@ else{
                 process.exit();
             }
 
-            var images = settings.images;
-
-            if (!(images && images.length)){
-                sys.puts('No images urls!');
+            var isValid = validateSettings(settings);
+            if (isValid !== true){
+                sys.puts('Settings is not valid!');
+                sys.puts(isValid);
                 process.exit();
             }
+
+            var images = settings.images;
 
             var imageIndex = 0;
             var space = settings.space - 0;

@@ -1,18 +1,18 @@
 obj = {
-    'name': 'test_1',
-    'space': 100,
-    'direction': 'h',
+    'name': 'test',
+    'space': 1,
+    'direction': 'horizontal',
     'images': [
             {
-                url: '/Users/feugenix/projects/tmp/nodejs/tool1/st.jpg',
+                url: '/Users/feugenix/projects/tmp/nodejs/spriter/example.jpg',
                 name: 'first'
             },
             {
-                url: '/Users/feugenix/projects/tmp/nodejs/tool1/st.jpg',
+                url: '/Users/feugenix/projects/tmp/nodejs/spriter/example.jpg',
                 name: 'second'
             },
             {
-                url: '/Users/feugenix/projects/tmp/nodejs/tool1/st.jpg',
+                url: '/Users/feugenix/projects/tmp/nodejs/spriter/example.jpg',
                 name: 'third'
             }
     ]
