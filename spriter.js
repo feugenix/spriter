@@ -1,6 +1,5 @@
 var http = require('http'),
 	sys = require('sys'),
-	im = require('imagemagick'),
 	childproc = require('child_process'),
     fs = require('fs'),
     path = require('path');
@@ -149,93 +148,144 @@ function rmTemporaryFiles(filePrefix, callback, withProcessed){
             check();
         });
     }
-}
+};
 
-function processImage(inputFile, filePrefix, space, direction, allDoneCallback){
-    im.identify(['-format', '%wx%h', inputFile], function(e, data){
-        if (e) {
-            throw e;
+function successCrop(options){ // filePrefix, direction, height, width, inputFile, allDoneCallback
+    //shortcuts
+    var filePrefix = options.filePrefix;
+    var direction = options.direction;
+    var height = options.height;
+    var width = options.width;
+    var inputFile = options.inputFile;
+    var allDoneCallback = options.allDoneCallback;
+
+    path.exists(filePrefix + '.png', function(exists){
+        if (direction){
+            cssContent.push(height);
+        }
+        else{
+            cssContent.push(width);
         }
 
-        var splittedData = data.split('x');
-        var width = splittedData[0] - 0;
-        var height = splittedData[1] - 0;
+        if (exists){
+            // montage
 
-        im.convert([inputFile, '-frame', space + 'x' + space, inputFile + '.border.png'], function(e, metadata){
-            if (e) {
-                sys.puts('Adding border error!');
-                throw e;
-            }
-
-            var newWidth = width + space;
-            var newHeight = height;
+            var args;
 
             if (direction){
-                newWidth = width;
-                newHeight += space;
+                args = ['-geometry', '+0+0', '-tile', '1x', filePrefix + '.png', inputFile + '.processed.png', filePrefix + '.final.png'];
+            }
+            else{
+                args = ['-geometry', '+0+0', filePrefix + '.png', inputFile + '.processed.png', filePrefix + '.final.png'];
             }
 
-            var args = [inputFile + '.border.png', '-crop', newWidth + 'x' + newHeight + '+' + space + '+' + space, inputFile + '.processed.png'];
+            exec({
+                executable: 'montage',
+                args: args,
+                success: function(){
+                    fs.rename(filePrefix + '.final.png', filePrefix + '.png', function(e){
+                        if (e) {
+                            sys.puts('Final rename error!');
+                            throw e;
+                        }
 
-            im.convert(args, function(e, meta){
+                        rmTemporaryFiles(inputFile, allDoneCallback, true);
+                    });
+                },
+                error: function(e){
+                    sys.puts('Montage error!');
+                    throw e;
+                }
+            });
+        }
+        else{
+            // rename inputFile + '.processed.png' -> filePrefix + '.png'
+            fs.rename(inputFile + '.processed.png', filePrefix + '.png', function(e){
                 if (e) {
-                    sys.puts('Crop error!');
+                    sys.puts('First rename error!');
                     throw e;
                 }
 
-                path.exists(filePrefix + '.png', function(exists){
-                    if (direction){
-                        cssContent.push(height);
-                    }
-                    else{
-                        cssContent.push(width);
-                    }
-
-                    if (exists){
-                        // montage
-
-                        var args;
-
-                        if (direction){
-                            args = ['-geometry', '+0+0', '-tile', '1x', filePrefix + '.png', inputFile + '.processed.png', filePrefix + '.final.png'];
-                        }
-                        else{
-                            args = ['-geometry', '+0+0', filePrefix + '.png', inputFile + '.processed.png', filePrefix + '.final.png'];
-                        }
-
-                        exec({
-                            executable: 'montage',
-                            args: args,
-                            success: function(){
-                                fs.rename(filePrefix + '.final.png', filePrefix + '.png', function(e){
-                                    if (e) {
-                                        sys.puts('Final rename error!');
-                                        throw e;
-                                    }
-
-                                    rmTemporaryFiles(inputFile, allDoneCallback, true);
-                                });
-                            },
-                            error: function(e){
-                                sys.puts('Montage error!');
-                                throw e;
-                            }
-                        });
-                    }
-                    else{
-                        // rename inputFile + '.processed.png' -> filePrefix + '.png'
-                        fs.rename(inputFile + '.processed.png', filePrefix + '.png', function(e){
-                            if (e) {
-                                sys.puts('First rename error!');
-                                throw e;
-                            }
-
-                            rmTemporaryFiles(inputFile, allDoneCallback, false);
-                        });
-                    }
-                });
+                rmTemporaryFiles(inputFile, allDoneCallback);
             });
-        });
+        }
+    });
+};
+
+function successBorder(options){ // width, space, height, inputFile, filePrefix, direction, allDoneCallback){
+    //shortcuts
+    var height = options.height;
+    var width = options.width;
+    var space = options.space;
+    var inputFile = options.inputFile;
+    var filePrefix = options.filePrefix;
+    var direction = options.direction;
+    var allDoneCallback = options.allDoneCallback;
+
+    var newWidth = width + space;
+    var newHeight = height;
+
+    if (direction){
+        newWidth = width;
+        newHeight += space;
+    }
+
+    var args = [inputFile + '.border.png', '-crop', newWidth + 'x' + newHeight + '+' + space + '+' + space, inputFile + '.processed.png'];
+
+    exec({
+        executable: 'convert',
+        args: args,
+        success: function(){
+            successCrop({
+                filePrefix: filePrefix,
+                direction: direction,
+                height: height,
+                width: width,
+                inputFile: inputFile,
+                allDoneCallback: allDoneCallback
+            });
+        },
+        error: function(e){
+            sys.puts('Crop error!');
+            throw e;
+        }
+    });
+};
+
+function processImage(inputFile, filePrefix, space, direction, allDoneCallback){
+    exec({
+        executable: 'identify',
+        args: ['-format', '%wx%h', inputFile],
+        success: function(data){
+            var splittedData = data.split('x');
+            var width = splittedData[0] - 0;
+            var height = splittedData[1] - 0;
+
+            exec({
+                executable: 'convert',
+                args: [inputFile, '-frame', space + 'x' + space, inputFile + '.border.png'],
+                success: function(){
+
+                    successBorder({
+                        width: width,
+                        space: space,
+                        height: height,
+                        inputFile: inputFile,
+                        filePrefix: filePrefix,
+                        direction: direction,
+                        allDoneCallback: allDoneCallback
+                    });
+                },
+                error: function(e){
+                    sys.puts('Adding border error!');
+                    throw e;
+                }
+            });
+        },
+        error: function(e){
+            sys.puts('Error identifying image!');
+            throw e;
+        }
     });
 };
 
